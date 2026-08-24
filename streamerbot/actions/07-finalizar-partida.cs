@@ -45,12 +45,30 @@ public class CPHInline
 
         X1User winner = winnerId == state.Challenger.Id ? state.Challenger : state.Target;
         X1User loser = winnerId == state.Challenger.Id ? state.Target : state.Challenger;
+        string winningOutcomeId = winnerId == state.Challenger.Id ? state.ChallengerOutcomeId : state.TargetOutcomeId;
+        if (!state.IsTest && (string.IsNullOrWhiteSpace(state.PredictionId) || string.IsNullOrWhiteSpace(winningOutcomeId)))
+        {
+            CPH.LogError($"[X1] Resultado válido, mas dados da Prediction estão incompletos: {duelId}");
+            return false;
+        }
+
         state.Status = "FINALIZING";
         state.ResultAnnounced = true;
         CPH.SetGlobalVar(StateKey, JsonConvert.SerializeObject(state), false);
 
         if (!state.IsTest)
         {
+            try
+            {
+                CPH.TwitchPredictionResolve(state.PredictionId, winningOutcomeId);
+            }
+            catch (Exception error)
+            {
+                CPH.LogError($"[X1] Falha resolvendo Prediction {state.PredictionId}: {error.Message}");
+                CPH.SendMessage("A corrida terminou, mas a Prediction precisa ser resolvida manualmente pelo streamer.", true, true);
+                return false;
+            }
+            FulfillRedemption(state);
             CPH.SendMessage($"@{winner.DisplayName} venceu @{loser.DisplayName} no X1!", true, true);
             CPH.SetGlobalVar(CooldownKey, DateTime.UtcNow.AddSeconds(60).ToString("o"), false);
         }
@@ -59,11 +77,19 @@ public class CPHInline
         return true;
     }
 
+    private void FulfillRedemption(X1State state)
+    {
+        if (!string.IsNullOrWhiteSpace(state.RewardId) && !string.IsNullOrWhiteSpace(state.RedemptionId))
+            CPH.TwitchRedemptionFulfill(state.RewardId, state.RedemptionId);
+    }
+
     private X1State Load() { string json = CPH.GetGlobalVar<string>(StateKey, false); return string.IsNullOrWhiteSpace(json) ? null : JsonConvert.DeserializeObject<X1State>(json); }
 }
 public class X1State
 {
     public string Status { get; set; } public string DuelId { get; set; } public X1User Challenger { get; set; } public X1User Target { get; set; }
     public int Seed { get; set; } public bool ResultAnnounced { get; set; } public bool IsTest { get; set; }
+    public string RewardId { get; set; } public string RedemptionId { get; set; }
+    public string PredictionId { get; set; } public string ChallengerOutcomeId { get; set; } public string TargetOutcomeId { get; set; }
 }
 public class X1User { public string Id { get; set; } public string Login { get; set; } public string DisplayName { get; set; } }

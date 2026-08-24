@@ -4,9 +4,11 @@ Overlay local para duelos interativos na Twitch. O primeiro modo é uma corrida 
 
 ## Estado do projeto
 
-Esta versão contém o protótipo funcional da corrida:
+Esta versão contém a V1 integrada da corrida:
 
-- `!x1 @usuario`, `!aceitar` e `!negar`;
+- recompensa oficial de Channel Points com texto obrigatório;
+- `!aceitarx1` e `!recusarx1`;
+- Prediction oficial de 30 segundos, resolvida pelo vencedor da corrida;
 - viewer contra viewer, viewer contra streamer e streamer contra viewer;
 - desafio com expiração em 45 segundos;
 - somente um duelo ativo;
@@ -38,4 +40,3 @@ Abra `http://127.0.0.1:7474/?controls=1&autostart=1` para testar somente a corri
 ## Segurança
 
 O projeto não inclui tokens, senhas ou credenciais da Twitch. O HTTP e o WebSocket devem permanecer ligados apenas a `127.0.0.1`.
-

@@ -11,7 +11,7 @@ Nenhum dado do duelo é enviado a um backend próprio.
 ## Estados
 
 ```text
-WAITING_ACCEPT -> STARTING -> ANIMATING -> FINALIZING -> IDLE
+WAITING_ACCEPT -> PREDICTION_CREATING -> PREDICTION_OPEN -> STARTING -> ANIMATING -> FINALIZING -> IDLE
 ```
 
 Expiração, negação, falha de ACK, watchdog ou cancelamento administrativo limpam o estado e retornam a `IDLE`.
@@ -20,7 +20,7 @@ Expiração, negação, falha de ACK, watchdog ou cancelamento administrativo li
 
 ### `X1.Start`
 
-Enviado após `!aceitar`. Contém `duelId`, `seed`, modo e os dois participantes.
+Enviado depois que o desafiado usa `!aceitarx1` e a janela da Prediction termina. Contém `duelId`, `seed`, modo e os dois participantes.
 
 ### `X1.Ack`
 
@@ -35,5 +35,4 @@ Interrompe a corrida cujo `duelId` corresponde ao duelo ativo.
 - `X1 - Confirmar Inicio`
 - `X1 - Finalizar Partida`
 
-O resultado final inclui vencedor, seed, tempo real, tempo simulado e motivo. O Streamer.bot valida todos os campos e rejeita callbacks atrasados ou duplicados.
-
+O resultado final inclui vencedor, seed, tempo real, tempo simulado e motivo. O Streamer.bot valida todos os campos, rejeita callbacks atrasados ou duplicados e resolve o outcome da Prediction associado ao `winnerId`.

@@ -1,5 +1,5 @@
 window.X1_LIVE_CONFIG = Object.freeze({
-  appVersion: "0.4.0",
+  appVersion: "0.5.0",
   contractVersion: 4,
   websocket: Object.freeze({
     host: "127.0.0.1",

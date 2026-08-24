@@ -1,8 +1,28 @@
-# Configuração do Streamer.bot
+# Configuração do Streamer.bot - X1 Live v0.5
 
-Use os nomes das Actions exatamente como aparecem aqui. O overlay chama duas delas por nome através do HTTP Server.
+Este guia usa a recompensa da Twitch para criar o desafio, os comandos `!aceitarx1` e `!recusarx1` para responder e uma Prediction oficial de 30 segundos antes da corrida.
 
-## 1. Filas
+Use os nomes das Actions exatamente como aparecem aqui. O overlay chama `X1 - Confirmar Inicio` e `X1 - Finalizar Partida` por nome através do HTTP Server.
+
+## 1. Recompensa
+
+Crie a recompensa em `Platforms > Twitch > Channel Point Rewards` pelo próprio Streamer.bot:
+
+| Campo | Valor de teste |
+|---|---|
+| Nome | `Chamar para o x1` |
+| Enabled | desativado até concluir a configuração |
+| Paused | ativado |
+| Cost | `1` |
+| User Input Required | ativado |
+| Description / Prompt | `Informe o nome do usuário que deseja convidar. Exemplo: Fulano` |
+| Redemption Skips Queue | desativado |
+| Global Cooldown | `60` segundos |
+| Grupo | `X1 Live` |
+
+O bot mantém o resgate pendente. Falhas técnicas e entradas inválidas são reembolsadas; desafios válidos são concluídos ao terminar, expirar ou serem recusados.
+
+## 2. Filas
 
 Em `Actions & Queues > Queues`, crie:
 
@@ -11,26 +31,23 @@ Em `Actions & Queues > Queues`, crie:
 | `X1-State` | ativado |
 | `X1-Timers` | desativado |
 
-As Actions que alteram estado usam `X1-State`. Os delays usam `X1-Timers`, impedindo que um timer de 45 segundos bloqueie `!aceitar`.
+Os delays nunca ficam na fila bloqueante.
 
-## 2. Comandos
-
-Crie estes comandos para Twitch:
+## 3. Comandos
 
 | Nome | Comando | Modo | Permissão |
 |---|---|---|---|
-| X1 Desafiar | `!x1` | Starts With | Everyone |
-| X1 Aceitar | `!aceitar` | Exact | Everyone |
-| X1 Negar | `!negar` | Exact | Everyone |
+| X1 Aceitar | `!aceitarx1` | Exact | Everyone |
+| X1 Recusar | `!recusarx1` | Exact | Everyone |
 | X1 Cancelar | `!x1cancel` | Exact | Moderator |
 
-Não configure cooldown nos comandos. O núcleo controla o duelo ativo e o cooldown global de 60 segundos.
+Não configure cooldown nos comandos. O estado global do X1 controla concorrência e cooldown.
 
-## 3. Action `X1 - Criar Desafio`
+## 4. Action `X1 - Criar Desafio`
 
 - Grupo: `X1 Live`
 - Fila: `X1-State`
-- Trigger: `Command Triggered` com `X1 Desafiar`
+- Trigger: `Twitch > Channel Reward > Reward Redemption`, selecionando a recompensa `Chamar para o x1` que você criou
 - Concurrent: desativado
 
 Sub-actions, nesta ordem:
@@ -42,9 +59,9 @@ Sub-actions, nesta ordem:
 5. `Execute C# Code`: `03-criar-desafio.cs`.
 6. `Core > Actions > Run Action`: `X1 - Expiracao`, com `Run Action Immediately` desativado.
 
-Marque `Precompile on Application Start` nos Execute C# Code.
+Marque `Precompile on Application Start` em todos os `Execute C# Code`.
 
-## 4. Action `X1 - Expiracao`
+## 5. Action `X1 - Expiracao`
 
 - Grupo: `X1 Live - Interno`
 - Fila: `X1-Timers`
@@ -55,20 +72,50 @@ Sub-actions:
 1. `Delay`: `45000` ms.
 2. `Execute C# Code`: `08-expirar-desafio.cs`.
 
-## 5. Action `X1 - Aceitar Desafio`
+## 6. Action `X1 - Aceitar Desafio`
 
 - Grupo: `X1 Live`
 - Fila: `X1-State`
-- Trigger: `Command Triggered` com `X1 Aceitar`
+- Trigger: comando `X1 Aceitar`
+
+Sub-actions, nesta ordem:
+
+1. `Execute C# Code`: `04-preparar-prediction.cs`.
+2. `Twitch > Predictions > Create Prediction`:
+   - Title: `%x1PredictionTitle%`
+   - First Option: `%x1ChallengerTitle%`
+   - Second Option: `%x1TargetTitle%`
+   - Duration: `30` segundos
+3. `Execute C# Code`: `13-registrar-prediction.cs`.
+4. `Twitch > Predictions > Get Active Prediction`.
+5. `Execute C# Code`: `14-registrar-outcomes.cs`.
+6. `Core > Actions > Run Action`: `X1 - Timer Prediction`, com `Run Action Immediately` desativado.
+
+Se qualquer C# retornar `false`, a execução para antes da próxima sub-action.
+
+## 7. Action `X1 - Timer Prediction`
+
+- Grupo: `X1 Live - Interno`
+- Fila: `X1-Timers`
+- Sem trigger
 
 Sub-actions:
 
-1. `Execute C# Code`: `04-aceitar-iniciar.cs`.
+1. `Delay`: `31000` ms.
+2. `Core > Actions > Run Action`: `X1 - Iniciar Corrida`, com `Run Action Immediately` desativado.
+
+## 8. Action `X1 - Iniciar Corrida`
+
+- Grupo: `X1 Live - Interno`
+- Fila: `X1-State`
+- Sem trigger
+
+Sub-actions:
+
+1. `Execute C# Code`: `15-iniciar-corrida.cs`.
 2. `Core > Actions > Run Action`: `X1 - Watchdog`, com `Run Action Immediately` desativado.
 
-Se o C# rejeitar o aceite, ele retorna `false` e a Action para antes de agendar o watchdog.
-
-## 6. Action `X1 - Watchdog`
+## 9. Action `X1 - Watchdog`
 
 - Grupo: `X1 Live - Interno`
 - Fila: `X1-Timers`
@@ -81,21 +128,16 @@ Sub-actions:
 3. `Delay`: `47000` ms.
 4. `Execute C# Code`: `10-watchdog-final.cs`.
 
-Timers antigos são inofensivos: cada script compara o `duelId` agendado ao duelo ativo.
+Timers antigos são inofensivos porque todos comparam o `duelId` agendado ao duelo ativo.
 
-## 7. Action `X1 - Negar Desafio`
+## 10. Action `X1 - Recusar Desafio`
 
 - Grupo: `X1 Live`
 - Fila: `X1-State`
-- Trigger: `Command Triggered` com `X1 Negar`
+- Trigger: comando `X1 Recusar`
+- Sub-action: `Execute C# Code` com `05-negar.cs`.
 
-Sub-action única:
-
-1. `Execute C# Code`: `05-negar.cs`.
-
-## 8. Actions chamadas pelo overlay
-
-Os nomes não podem ser alterados.
+## 11. Actions chamadas pelo overlay
 
 ### `X1 - Confirmar Inicio`
 
@@ -111,14 +153,18 @@ Os nomes não podem ser alterados.
 - Sem trigger
 - Sub-action: `Execute C# Code` com `07-finalizar-partida.cs`.
 
-## 9. Action `X1 - Cancelar`
+O finalizador converte o `winnerId` retornado pela corrida no outcome correspondente e resolve a Prediction oficial.
+
+## 12. Action `X1 - Cancelar`
 
 - Grupo: `X1 Live`
 - Fila: `X1-State`
-- Trigger: `Command Triggered` com `X1 Cancelar`
+- Trigger: comando `X1 Cancelar`
 - Sub-action: `Execute C# Code` com `11-cancelar-admin.cs`.
 
-## 10. Action `X1 - Testar Overlay`
+O cancelamento administrativo também cancela a Prediction e reembolsa os apostadores.
+
+## 13. Action `X1 - Testar Overlay`
 
 - Grupo: `X1 Live`
 - Fila: `X1-State`
@@ -129,17 +175,19 @@ Sub-actions:
 1. `Execute C# Code`: `12-testar-overlay.cs`.
 2. `Core > Actions > Run Action`: `X1 - Watchdog`, com `Run Action Immediately` desativado.
 
-Execute essa Action pelo menu de contexto para testar a ida e volta completa sem depender do chat.
+Esse teste não cria Prediction nem consome recompensa.
 
-## 11. Exportação futura
+## 14. Ordem de teste
 
-Depois que todas as Actions compilarem e o teste real funcionar:
+1. Execute manualmente `X1 - Testar Overlay`.
+2. Confirme a ida e volta no log.
+3. Ative e despause a recompensa mantendo custo `1`.
+4. Resgate usando uma segunda conta e informe outro usuário válido.
+5. Aceite com a conta desafiada.
+6. Confirme que a Prediction abre por 30 segundos.
+7. Confirme que a corrida aparece e a Prediction é resolvida.
+8. Só depois aumente o custo de produção.
 
-1. Selecione o grupo `X1 Live` e adicione-o ao Export.
-2. Selecione `X1 Live - Interno` e adicione-o também.
-3. Inclua os comandos e as filas.
-4. Exporte para arquivo com versão `0.4.0`.
-5. Salve o arquivo em `streamerbot/exports` no repositório.
+## 15. Exportação
 
-O export só deve ser criado depois do primeiro teste na instalação real, porque é a própria aplicação que gera e valida o formato de importação.
-
+Depois que todas as Actions compilarem e o teste real funcionar, exporte os grupos, comandos e filas pela própria instalação do Streamer.bot e salve o export em `streamerbot/exports`.

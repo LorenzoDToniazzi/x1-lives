@@ -1,6 +1,6 @@
 # Instalação do X1 Live
 
-Este guia considera Streamer.bot 1.0.4 ou uma versão estável mais recente e OBS Studio 28 ou superior.
+Este guia considera Streamer.bot 1.0.7 ou uma versão estável mais recente e OBS Studio 28 ou superior.
 
 ## 1. Baixar os programas
 
@@ -25,7 +25,7 @@ Não mova essa pasta depois de configurar o mapeamento HTTP.
 1. No Streamer.bot, abra `Platforms > Twitch`.
 2. Conecte sua conta principal como `Broadcaster`.
 3. A conta separada de bot é opcional. Sem ela, as mensagens são enviadas pela conta principal.
-4. Confirme que o Chat Client e o EventSub estão conectados.
+4. Confirme que a conta e o EventSub estão conectados. As versões 1.0.5+ não usam mais o antigo Twitch IRC.
 
 ## 4. Ativar os servidores locais
 
@@ -85,19 +85,17 @@ Não é necessário conectar o Streamer.bot ao WebSocket do OBS para a primeira 
 [X1] Finalizado
 ```
 
-Depois, teste no chat do canal mesmo offline:
+Depois, teste o fluxo oficial com uma recompensa de custo `1`:
 
 ```text
-!x1 @usuario
-!aceitar
+Resgate Chamar para o x1 -> informe Fulano -> Fulano usa !aceitarx1
 ```
 
 ## 8. Uso normal
 
-- `!x1 @usuario`: cria um desafio.
-- `!aceitar`: somente o alvo aceita.
-- `!negar`: somente o alvo recusa.
+- a recompensa `Chamar para o x1` cria um desafio;
+- `!aceitarx1`: somente o alvo aceita;
+- `!recusarx1`: somente o alvo recusa;
 - `!x1cancel`: streamer ou moderador cancela um duelo travado.
 
 Viewer contra viewer, viewer contra streamer e streamer contra viewer são permitidos. Auto-desafio e desafio contra uma conta separada de bot são bloqueados.
-
