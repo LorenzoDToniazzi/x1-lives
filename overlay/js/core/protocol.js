@@ -6,6 +6,7 @@ export const X1_EVENTS = Object.freeze({
 
 export function unwrapCustomEvent(message) {
   if (!message || typeof message !== "object") return null;
+  if (typeof message.event === "string" && message.event.startsWith("X1.")) return message;
   let value = message.data;
   for (let depth = 0; depth < 4; depth += 1) {
     if (typeof value === "string") {

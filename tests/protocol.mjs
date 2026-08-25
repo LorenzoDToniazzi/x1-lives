@@ -17,6 +17,7 @@ const start = {
 };
 
 assert.deepEqual(unwrapCustomEvent({ data: start }), start);
+assert.deepEqual(unwrapCustomEvent(start), start);
 assert.deepEqual(unwrapCustomEvent({ data: { data: JSON.stringify(start) } }), start);
 assert.deepEqual(unwrapCustomEvent({ data: JSON.stringify({ data: JSON.stringify(start) }) }), start);
 assert.equal(unwrapCustomEvent({ data: "não é JSON" }), null);

@@ -43,7 +43,6 @@ export class StreamerbotBridge extends EventTarget {
       } catch {
         return;
       }
-      if (message?.event?.source !== "General" || message?.event?.type !== "Custom") return;
       const detail = unwrapCustomEvent(message);
       if (detail) this.dispatchEvent(new CustomEvent("x1-event", { detail }));
     });
