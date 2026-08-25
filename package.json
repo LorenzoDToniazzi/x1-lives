@@ -1,0 +1,16 @@
+{
+  "name": "x1-live",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:protocol && npm run test:streamerbot && npm run test:physics",
+    "test:protocol": "node tests/protocol.mjs",
+    "test:streamerbot": "node tests/streamerbot.mjs",
+    "test:physics": "node overlay/tests/physics.mjs",
+    "serve": "node tools/dev-server.mjs"
+  },
+  "devDependencies": {
+    "matter-js": "^0.20.0"
+  }
+}

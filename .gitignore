@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+config.local.js
+*.user
+*.suo
+.vscode/
+.idea/
+coverage/
+dist/
+
