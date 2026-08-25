@@ -24,6 +24,13 @@ assert.equal(unwrapCustomEvent({ data: "não é JSON" }), null);
 
 const validated = validateStart(start, 4);
 assert.equal(validated.participants.length, 2);
+const pascalValidated = validateStart({
+  ...start,
+  challenger: { Id: "1", Login: "azul", DisplayName: "Azul", AvatarUrl: "azul.png" },
+  target: { Id: "2", Login: "rosa", DisplayName: "Rosa", AvatarUrl: "rosa.png" },
+}, 4);
+assert.equal(pascalValidated.participants[0].displayName, "Azul");
+assert.equal(pascalValidated.participants[1].avatarUrl, "rosa.png");
 assert.equal(validateStart({ ...start, contractVersion: 3 }, 4), null);
 assert.equal(validateStart({ ...start, seed: 0 }, 4), null);
 assert.equal(validateStart({ ...start, target: start.challenger }, 4), null);

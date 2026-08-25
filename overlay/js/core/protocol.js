@@ -32,7 +32,12 @@ export function validateStart(payload, contractVersion) {
   if (typeof payload.duelId !== "string" || !payload.duelId) return null;
   if (!Number.isInteger(payload.seed) || payload.seed < 1 || payload.seed > 2147483646) return null;
 
-  const participants = [payload.challenger, payload.target];
+  const participants = [payload.challenger, payload.target].map((participant) => ({
+    id: participant?.id ?? participant?.Id,
+    login: participant?.login ?? participant?.Login ?? "",
+    displayName: participant?.displayName ?? participant?.DisplayName,
+    avatarUrl: participant?.avatarUrl ?? participant?.AvatarUrl ?? "",
+  }));
   if (participants.some((participant) =>
     !participant || typeof participant.id !== "string" || !participant.id
     || typeof participant.displayName !== "string" || !participant.displayName

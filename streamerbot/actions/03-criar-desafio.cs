@@ -131,6 +131,7 @@ public class X1State
     public X1User Target { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
+    public DateTime? PredictionOpenedAtUtc { get; set; }
     public DateTime? StartedAtUtc { get; set; }
     public DateTime? OverlayConfirmedAtUtc { get; set; }
     public string RewardId { get; set; }

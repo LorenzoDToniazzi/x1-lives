@@ -31,4 +31,26 @@ assert.match(finish, /TwitchPredictionResolve/);
 assert.match(finish, /ChallengerOutcomeId/);
 assert.match(finish, /TargetOutcomeId/);
 
+for (const script of [
+  "04-preparar-prediction.cs",
+  "06-confirmar-inicio.cs",
+  "07-finalizar-partida.cs",
+  "13-registrar-prediction.cs",
+  "14-registrar-outcomes.cs",
+  "15-iniciar-corrida.cs",
+]) {
+  const source = await read(script);
+  for (const field of [
+    "ContractVersion",
+    "Challenger",
+    "Target",
+    "RewardId",
+    "PredictionId",
+    "Seed",
+    "IsTest",
+  ]) {
+    assert.match(source, new RegExp(field), `${script} deve preservar ${field}`);
+  }
+}
+
 console.log("Scripts do Streamer.bot validados estaticamente.");
