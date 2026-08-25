@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Newtonsoft.Json;
 
 public class CPHInline
@@ -20,8 +19,9 @@ public class CPHInline
         X1State state = Load();
         if (state == null) { CPH.LogInfo("[X1] Callback sem duelo ativo"); return false; }
 
-        HashSet<string> reasons = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        { "finish_line", "time_limit_progress", "time_limit_tiebreak" };
+        bool reasonValid = string.Equals(resultReason, "finish_line", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(resultReason, "time_limit_progress", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(resultReason, "time_limit_tiebreak", StringComparison.OrdinalIgnoreCase);
         bool winnerValid = winnerId == state.Challenger.Id || winnerId == state.Target.Id;
         long expectedSimulation = finishTimeMs * 2;
         long timingTolerance = Math.Max(2500, (long)(expectedSimulation * 0.35));
@@ -34,7 +34,7 @@ public class CPHInline
             && finishTimeMs >= 0 && finishTimeMs <= 48000
             && simulationTimeMs >= 0 && simulationTimeMs <= 96000
             && timingCompatible
-            && reasons.Contains(resultReason ?? string.Empty)
+            && reasonValid
             && !state.ResultAnnounced;
 
         if (!valid)
