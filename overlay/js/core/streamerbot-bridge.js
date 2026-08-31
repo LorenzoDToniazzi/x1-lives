@@ -7,6 +7,8 @@ export class StreamerbotBridge extends EventTarget {
     this.socket = null;
     this.closed = false;
     this.reconnectDelay = config.websocket.reconnectMinMs;
+    this.pendingRequests = new Map();
+    this.requestSequence = 0;
   }
 
   connect() {
@@ -16,12 +18,13 @@ export class StreamerbotBridge extends EventTarget {
 
   disconnect() {
     this.closed = true;
+    this.rejectPendingRequests(new Error("WebSocket do Streamer.bot desconectado."));
     this.socket?.close();
     this.socket = null;
   }
 
   openSocket() {
-    if (this.closed || this.socket?.readyState === WebSocket.OPEN) return;
+    if (this.closed || this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) return;
     const { host, port, endpoint } = this.config.websocket;
     this.socket = new WebSocket(`ws://${host}:${port}${endpoint}`);
 
@@ -43,11 +46,18 @@ export class StreamerbotBridge extends EventTarget {
       } catch {
         return;
       }
+
+      if (this.resolveRequest(message)) return;
+
       const detail = unwrapCustomEvent(message);
       if (detail) this.dispatchEvent(new CustomEvent("x1-event", { detail }));
     });
 
-    this.socket.addEventListener("close", () => this.scheduleReconnect());
+    this.socket.addEventListener("close", () => {
+      this.rejectPendingRequests(new Error("WebSocket do Streamer.bot fechou durante a requisição."));
+      this.socket = null;
+      this.scheduleReconnect();
+    });
     this.socket.addEventListener("error", () => this.socket?.close());
   }
 
@@ -66,13 +76,12 @@ export class StreamerbotBridge extends EventTarget {
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       try {
-        const response = await fetch("/DoAction", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: { name: actionName }, args }),
+        await this.waitUntilOpen();
+        return await this.sendRequest({
+          request: "DoAction",
+          action: { name: actionName },
+          args,
         });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return;
       } catch (error) {
         lastError = error;
         if (attempt < attempts) {
@@ -81,5 +90,68 @@ export class StreamerbotBridge extends EventTarget {
       }
     }
     throw lastError;
+  }
+
+  waitUntilOpen(timeoutMs = 3500) {
+    if (this.socket?.readyState === WebSocket.OPEN) return Promise.resolve();
+    if (this.closed) return Promise.reject(new Error("Bridge do Streamer.bot está encerrado."));
+    if (!this.socket || this.socket.readyState === WebSocket.CLOSED) this.openSocket();
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Timeout aguardando WebSocket do Streamer.bot."));
+      }, timeoutMs);
+      const onConnected = () => {
+        cleanup();
+        resolve();
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        this.removeEventListener("connected", onConnected);
+      };
+      this.addEventListener("connected", onConnected, { once: true });
+    });
+  }
+
+  sendRequest(payload, timeoutMs = 4000) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error("WebSocket do Streamer.bot não está aberto."));
+    }
+
+    const id = `x1-request-${Date.now()}-${++this.requestSequence}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(new Error(`Timeout aguardando resposta do Streamer.bot para ${payload.request}.`));
+      }, timeoutMs);
+      this.pendingRequests.set(id, { resolve, reject, timer });
+      try {
+        this.socket.send(JSON.stringify({ ...payload, id }));
+      } catch (error) {
+        clearTimeout(timer);
+        this.pendingRequests.delete(id);
+        reject(error);
+      }
+    });
+  }
+
+  resolveRequest(message) {
+    if (!message || typeof message.id !== "string") return false;
+    const pending = this.pendingRequests.get(message.id);
+    if (!pending) return false;
+    clearTimeout(pending.timer);
+    this.pendingRequests.delete(message.id);
+    if (message.status === "ok") pending.resolve(message);
+    else pending.reject(new Error(message.message || message.error || `Streamer.bot retornou ${message.status || "erro"}.`));
+    return true;
+  }
+
+  rejectPendingRequests(error) {
+    for (const [id, pending] of this.pendingRequests) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+      this.pendingRequests.delete(id);
+    }
   }
 }
