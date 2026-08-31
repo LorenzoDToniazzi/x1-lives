@@ -38,6 +38,8 @@ public class CPHInline
         CPH.SetGlobalVar(LastArenaSeedKey, state.Seed, false);
         CPH.SetArgument("x1DuelId", state.DuelId);
 
+        // Contrato intencionalmente mínimo: Streamer.bot informa quem joga e a seed.
+        // Toda configuração de física, balanceamento, armas e duração pertence ao módulo Arena do overlay.
         CPH.WebsocketBroadcastJson(JsonConvert.SerializeObject(new
         {
             contractVersion = 4,
@@ -47,7 +49,6 @@ public class CPHInline
             challenger = state.Challenger,
             target = state.Target,
             seed = state.Seed,
-            arena = new { simulationSpeed = 2, simulationHardLimitMs = 36000, wallClockHardLimitMs = 22000 },
             isTest = state.IsTest
         }));
 
