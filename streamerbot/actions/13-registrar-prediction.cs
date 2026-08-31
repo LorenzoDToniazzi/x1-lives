@@ -32,11 +32,13 @@ public class CPHInline
             return false;
         }
 
+        state.Mode = NormalizeMode(state.Mode);
         state.PredictionId = predictionId;
         Save(state);
         return true;
     }
 
+    private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
     private void RefundRedemption(X1State state)
     {
         if (!string.IsNullOrWhiteSpace(state.RewardId) && !string.IsNullOrWhiteSpace(state.RedemptionId))
@@ -49,7 +51,7 @@ public class CPHInline
 
 public class X1State
 {
-    public int ContractVersion { get; set; } public string Status { get; set; } public string DuelId { get; set; }
+    public int ContractVersion { get; set; } public string Mode { get; set; } public string Status { get; set; } public string DuelId { get; set; }
     public X1User Challenger { get; set; } public X1User Target { get; set; }
     public DateTime CreatedAtUtc { get; set; } public DateTime ExpiresAtUtc { get; set; }
     public DateTime? PredictionOpenedAtUtc { get; set; } public DateTime? StartedAtUtc { get; set; } public DateTime? OverlayConfirmedAtUtc { get; set; }
