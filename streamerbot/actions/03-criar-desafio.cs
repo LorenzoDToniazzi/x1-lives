@@ -84,6 +84,7 @@ public class CPHInline
         X1State state = new X1State
         {
             ContractVersion = 4,
+            Mode = NormalizeMode(Arg("x1Mode")),
             Status = "WAITING_ACCEPT",
             DuelId = Guid.NewGuid().ToString("N"),
             Challenger = challenger,
@@ -98,12 +99,14 @@ public class CPHInline
 
         Save(state);
         CPH.SetArgument("x1DuelId", state.DuelId);
-        CPH.SendMessage($"🥊 @{target.DisplayName}, @{challenger.DisplayName} te desafiou para um X1. Use !aceitarx1 ou !recusarx1 em 45 segundos.", true, true);
-        CPH.LogInfo($"[X1] Desafio criado: {state.DuelId} | {challenger.Login} vs {target.Login}");
+        string modeLabel = state.Mode == "arena" ? "Arena X1" : "X1";
+        CPH.SendMessage($"🥊 @{target.DisplayName}, @{challenger.DisplayName} te desafiou para {modeLabel}. Use !aceitarx1 ou !recusarx1 em 45 segundos.", true, true);
+        CPH.LogInfo($"[X1] Desafio criado: {state.DuelId} | modo {state.Mode} | {challenger.Login} vs {target.Login}");
         return true;
     }
 
     private string Arg(string name) { CPH.TryGetArg(name, out string value); return value ?? string.Empty; }
+    private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
     private X1State Load() { string json = CPH.GetGlobalVar<string>(StateKey, false); return string.IsNullOrWhiteSpace(json) ? null : JsonConvert.DeserializeObject<X1State>(json); }
     private void Save(X1State state) { CPH.SetGlobalVar(StateKey, JsonConvert.SerializeObject(state), false); }
     private bool TryGetCooldown(out DateTime value) { string raw = CPH.GetGlobalVar<string>(CooldownKey, false); return DateTime.TryParse(raw, null, System.Globalization.DateTimeStyles.RoundtripKind, out value); }
@@ -125,6 +128,7 @@ public class CPHInline
 public class X1State
 {
     public int ContractVersion { get; set; }
+    public string Mode { get; set; }
     public string Status { get; set; }
     public string DuelId { get; set; }
     public X1User Challenger { get; set; }
