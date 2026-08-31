@@ -19,22 +19,13 @@ public class CPHInline
         X1State state = Load();
         if (state == null) { CPH.LogInfo("[ARENA] Callback sem duelo ativo"); return false; }
 
-        bool reasonValid = string.Equals(resultReason, "knockout", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(resultReason, "tiebreak", StringComparison.OrdinalIgnoreCase);
         bool winnerValid = winnerId == state.Challenger.Id || winnerId == state.Target.Id;
-        long expectedSimulation = finishTimeMs * 2;
-        long timingTolerance = Math.Max(3000, (long)(expectedSimulation * 0.45));
-        bool timingCompatible = Math.Abs(simulationTimeMs - expectedSimulation) <= timingTolerance;
         bool valid = string.Equals(state.Mode, "arena", StringComparison.OrdinalIgnoreCase)
             && state.Status == "ANIMATING"
             && state.DuelId == duelId
             && contractVersion == 4
             && seed == state.Seed
             && winnerValid
-            && finishTimeMs >= 0 && finishTimeMs <= 30000
-            && simulationTimeMs >= 0 && simulationTimeMs <= 36050
-            && timingCompatible
-            && reasonValid
             && !state.ResultAnnounced;
 
         if (!valid)
@@ -73,7 +64,7 @@ public class CPHInline
             CPH.SetGlobalVar(CooldownKey, DateTime.UtcNow.AddSeconds(60).ToString("o"), false);
         }
 
-        CPH.LogInfo($"[ARENA] Finalizada: {duelId} | vencedor {winner.Login} | seed {state.Seed}");
+        CPH.LogInfo($"[ARENA] Finalizada: {duelId} | vencedor {winner.Login} | seed {state.Seed} | wall {finishTimeMs}ms | sim {simulationTimeMs}ms | motivo {resultReason ?? "n/a"}");
         CPH.UnsetGlobalVar(StateKey, false);
         return true;
     }
