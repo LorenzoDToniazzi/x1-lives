@@ -29,15 +29,17 @@ public class CPHInline
             return false;
         }
 
+        state.Mode = NormalizeMode(state.Mode);
         state.Status = "PREDICTION_CREATING";
         Save(state);
         CPH.SetArgument("x1DuelId", state.DuelId);
-        CPH.SetArgument("x1PredictionTitle", "QUEM VENCE O X1?");
+        CPH.SetArgument("x1PredictionTitle", state.Mode == "arena" ? "QUEM VENCE A ARENA X1?" : "QUEM VENCE O X1?");
         CPH.SetArgument("x1ChallengerTitle", LimitOutcomeTitle(state.Challenger.DisplayName));
         CPH.SetArgument("x1TargetTitle", LimitOutcomeTitle(state.Target.DisplayName));
         return true;
     }
 
+    private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
     private static string LimitOutcomeTitle(string value)
     {
         string text = string.IsNullOrWhiteSpace(value) ? "Jogador" : value.Trim();
@@ -57,6 +59,7 @@ public class CPHInline
 public class X1State
 {
     public int ContractVersion { get; set; }
+    public string Mode { get; set; }
     public string Status { get; set; }
     public string DuelId { get; set; }
     public X1User Challenger { get; set; }
