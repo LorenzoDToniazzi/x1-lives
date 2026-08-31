@@ -2,6 +2,7 @@ import { GameManager } from "./core/game-manager.js";
 import { OverlayController } from "./core/overlay-controller.js";
 import { StreamerbotBridge } from "./core/streamerbot-bridge.js";
 import { normalizeSeed } from "./core/seeded-rng.js";
+import { ArenaGame } from "./modes/arena/index.js";
 import { RaceGame } from "./modes/race/index.js";
 
 const config = window.X1_LIVE_CONFIG;
@@ -39,21 +40,30 @@ function randomSeed() {
 
 function updateStatus(snapshot) {
   const labels = {
-    finished: "Corrida concluída",
-    running: "Corrida em andamento",
-    countdown: "Preparando corrida",
+    finished: snapshot.mode === "arena" ? "Arena concluída" : "Corrida concluída",
+    running: snapshot.mode === "arena" ? "Arena em andamento" : "Corrida em andamento",
+    countdown: snapshot.mode === "arena" ? "Sorteando poderes" : "Preparando corrida",
     idle: "Aguardando X1",
   };
-  status.textContent = labels[snapshot.state] ?? "Preparando corrida";
+  status.textContent = labels[snapshot.state] ?? "Preparando X1";
+}
+
+function dispatchFinish(result) {
+  window.dispatchEvent(new CustomEvent("x1-game-finish", { detail: result }));
 }
 
 const race = new RaceGame({
   canvas,
   config,
-  onStateChange: updateStatus,
-  onFinish(result) {
-    window.dispatchEvent(new CustomEvent("x1-game-finish", { detail: result }));
-  },
+  onStateChange: (snapshot) => updateStatus({ ...snapshot, mode: "race" }),
+  onFinish: dispatchFinish,
+});
+
+const arena = new ArenaGame({
+  canvas,
+  config,
+  onStateChange: (snapshot) => updateStatus({ ...snapshot, mode: "arena" }),
+  onFinish: dispatchFinish,
 });
 
 const games = new GameManager();
@@ -69,22 +79,37 @@ games.register("race", {
     return race.getSnapshot();
   },
 });
+games.register("arena", {
+  start({ seed, participants, options }) {
+    return arena.start({ seed, participants, options });
+  },
+  cancel() {
+    arena.destroy();
+  },
+  getSnapshot() {
+    return arena.getSnapshot();
+  },
+});
 
 const bridge = new StreamerbotBridge(config);
 const controller = new OverlayController({ config, games, bridge });
 controller.start();
 
-function startDemo(seed = randomSeed(), participants = demoParticipants) {
+function startDemo(seed = randomSeed(), participants = demoParticipants, mode = params.get("mode") === "arena" ? "arena" : "race") {
   const normalized = normalizeSeed(seed);
   seedInput.value = String(normalized);
-  race.setSpeed(Number(speedInput.value));
   document.body.classList.remove("x1-idle");
-  return race.start({ seed: normalized, participants });
+  if (games.activeMode) games.cancel();
+  if (mode === "arena") return games.start("arena", { seed: normalized, participants, options: { simulationSpeed: Number(speedInput.value) } });
+  race.setSpeed(Number(speedInput.value));
+  return games.start("race", { seed: normalized, participants });
 }
 
 restartButton.addEventListener("click", () => startDemo(seedInput.value));
 randomButton.addEventListener("click", () => startDemo(randomSeed()));
-speedInput.addEventListener("change", () => race.setSpeed(Number(speedInput.value)));
+speedInput.addEventListener("change", () => {
+  if (games.activeMode === "race") race.setSpeed(Number(speedInput.value));
+});
 
 const initialSeed = normalizeSeed(params.get("seed") ?? randomSeed());
 const initialSpeed = Number(params.get("speed") ?? config.defaultSpeed);
@@ -103,5 +128,5 @@ if (params.get("autostart") === "1") {
   startDemo(initialSeed);
 } else {
   document.body.classList.add("x1-idle");
-  updateStatus({ state: "idle" });
+  updateStatus({ state: "idle", mode: null });
 }
