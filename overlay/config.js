@@ -1,5 +1,5 @@
 window.X1_LIVE_CONFIG = Object.freeze({
-  appVersion: "0.5.0",
+  appVersion: "0.6.0",
   contractVersion: 4,
   websocket: Object.freeze({
     host: "127.0.0.1",
@@ -11,6 +11,7 @@ window.X1_LIVE_CONFIG = Object.freeze({
   actions: Object.freeze({
     confirmStart: "X1 - Confirmar Inicio",
     finishGame: "X1 - Finalizar Partida",
+    finishArena: "Arena - Finalizar Partida",
   }),
   callbacks: Object.freeze({
     attempts: 4,
