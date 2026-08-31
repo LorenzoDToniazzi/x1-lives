@@ -9,6 +9,11 @@ public class CPHInline
         CPH.TryGetArg("x1DuelId", out string scheduledDuelId);
         X1State state = Load();
         if (state == null || state.DuelId != scheduledDuelId) return true;
+        if (string.Equals(state.Mode, "arena", StringComparison.OrdinalIgnoreCase))
+        {
+            CPH.LogInfo($"[X1] Watchdog final da Corrida ignorou Arena: {state.DuelId}");
+            return true;
+        }
         if (state.Status != "STARTING" && state.Status != "ANIMATING") return true;
         BroadcastCancel(state.DuelId, "race_timeout");
         CancelPredictionAndRefund(state);
@@ -27,4 +32,4 @@ public class CPHInline
     private void BroadcastCancel(string duelId, string reason) { CPH.WebsocketBroadcastJson(JsonConvert.SerializeObject(new { contractVersion = 4, @event = "X1.Cancel", duelId, reason })); }
     private X1State Load() { string json = CPH.GetGlobalVar<string>(StateKey, false); return string.IsNullOrWhiteSpace(json) ? null : JsonConvert.DeserializeObject<X1State>(json); }
 }
-public class X1State { public string Status { get; set; } public string DuelId { get; set; } public bool IsTest { get; set; } public string PredictionId { get; set; } public string RewardId { get; set; } public string RedemptionId { get; set; } }
+public class X1State { public string Mode { get; set; } public string Status { get; set; } public string DuelId { get; set; } public bool IsTest { get; set; } public string PredictionId { get; set; } public string RewardId { get; set; } public string RedemptionId { get; set; } }
