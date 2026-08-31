@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 public class CPHInline
 {
     private const string StateKey = "x1.activeState";
+    private const string LastRaceSeedKey = "x1.lastRaceSeed";
 
     public bool Execute()
     {
@@ -12,7 +13,13 @@ public class CPHInline
         X1State state = Load();
         if (state == null || state.Status != "PREDICTION_OPEN" || state.DuelId != scheduledDuelId)
         {
-            CPH.LogInfo($"[X1] Timer de Prediction antigo ignorado: {scheduledDuelId}");
+            CPH.LogInfo($"[X1] Início de Corrida antigo/invalidado ignorado: {scheduledDuelId}");
+            return false;
+        }
+        state.Mode = NormalizeMode(state.Mode);
+        if (state.Mode != "race")
+        {
+            CPH.LogError($"[X1] X1 - Iniciar Corrida recebeu modo {state.Mode}; execução recusada para proteger a Corrida.");
             return false;
         }
         if (string.IsNullOrWhiteSpace(state.PredictionId)
@@ -26,8 +33,9 @@ public class CPHInline
 
         state.Status = "STARTING";
         state.StartedAtUtc = DateTime.UtcNow;
-        state.Seed = CreateSeed();
+        state.Seed = CreateFreshRaceSeed();
         Save(state);
+        CPH.SetGlobalVar(LastRaceSeedKey, state.Seed, false);
         CPH.SetArgument("x1DuelId", state.DuelId);
         BroadcastStart(state);
         CPH.SendMessage($"🏁 Apostas encerradas. {state.Challenger.DisplayName} vs {state.Target.DisplayName} vai começar!", true, true);
@@ -51,6 +59,15 @@ public class CPHInline
         }));
     }
 
+    private int CreateFreshRaceSeed()
+    {
+        int previous = 0;
+        try { previous = CPH.GetGlobalVar<int>(LastRaceSeedKey, false); } catch { }
+        int seed;
+        do { seed = CreateSeed(); } while (seed == previous);
+        return seed;
+    }
+
     private void CancelAndRefund(X1State state, string reason)
     {
         try { if (!string.IsNullOrWhiteSpace(state.PredictionId)) CPH.TwitchPredictionCancel(state.PredictionId); }
@@ -61,6 +78,7 @@ public class CPHInline
         CPH.LogError($"[X1] Duelo cancelado: {state.DuelId} | {reason}");
     }
 
+    private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
     private static int CreateSeed() { byte[] bytes = new byte[4]; using (RandomNumberGenerator rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes); return (int)(BitConverter.ToUInt32(bytes, 0) % 2147483646U) + 1; }
     private X1State Load() { string json = CPH.GetGlobalVar<string>(StateKey, false); return string.IsNullOrWhiteSpace(json) ? null : JsonConvert.DeserializeObject<X1State>(json); }
     private void Save(X1State state) { CPH.SetGlobalVar(StateKey, JsonConvert.SerializeObject(state), false); }
@@ -68,7 +86,7 @@ public class CPHInline
 
 public class X1State
 {
-    public int ContractVersion { get; set; } public string Status { get; set; } public string DuelId { get; set; }
+    public int ContractVersion { get; set; } public string Mode { get; set; } public string Status { get; set; } public string DuelId { get; set; }
     public X1User Challenger { get; set; } public X1User Target { get; set; }
     public DateTime CreatedAtUtc { get; set; } public DateTime ExpiresAtUtc { get; set; }
     public DateTime? PredictionOpenedAtUtc { get; set; } public DateTime? StartedAtUtc { get; set; } public DateTime? OverlayConfirmedAtUtc { get; set; }
