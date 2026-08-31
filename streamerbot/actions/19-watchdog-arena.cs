@@ -8,7 +8,6 @@ public class CPHInline
     public bool Execute()
     {
         CPH.TryGetArg("x1DuelId", out string scheduledDuelId);
-        CPH.Wait(35000);
         X1State state = Load();
         if (state == null || state.DuelId != scheduledDuelId) return true;
         if (!string.Equals(state.Mode, "arena", StringComparison.OrdinalIgnoreCase)) return true;
