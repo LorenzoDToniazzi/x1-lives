@@ -45,6 +45,7 @@ export class OverlayController {
       this.games.start(payload.mode, {
         seed: payload.seed,
         participants: payload.participants,
+        options: payload[payload.mode] ?? {},
       });
     } catch (error) {
       console.error("[X1] Não foi possível confirmar o início", error);
@@ -67,14 +68,20 @@ export class OverlayController {
   async handleFinish(result) {
     if (!this.activeDuel) return;
     const duel = this.activeDuel;
+    const finishAction = duel.mode === "arena"
+      ? this.config.actions.finishArena
+      : this.config.actions.finishGame;
     try {
-      await this.bridge.doAction(this.config.actions.finishGame, {
+      await this.bridge.doAction(finishAction, {
         duelId: duel.duelId,
+        mode: duel.mode,
         winnerId: result.winnerId,
         seed: result.seed,
         finishTimeMs: result.finishTimeMs,
         simulationTimeMs: result.simulationTimeMs,
         resultReason: result.resultReason,
+        powers: result.powers,
+        stats: result.stats,
         contractVersion: this.config.contractVersion,
       });
       this.recentDuels.set(duel.duelId, Date.now());
