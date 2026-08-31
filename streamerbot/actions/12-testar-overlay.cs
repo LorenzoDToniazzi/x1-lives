@@ -18,6 +18,7 @@ public class CPHInline
         X1State state = new X1State
         {
             ContractVersion = 4,
+            Mode = "race",
             Status = "STARTING",
             DuelId = "teste" + Guid.NewGuid().ToString("N"),
             Challenger = new X1User { Id = "teste-azul", Login = "testeazul", DisplayName = "Teste Azul", AvatarUrl = string.Empty },
@@ -50,7 +51,7 @@ public class CPHInline
 }
 public class X1State
 {
-    public int ContractVersion { get; set; } public string Status { get; set; } public string DuelId { get; set; }
+    public int ContractVersion { get; set; } public string Mode { get; set; } public string Status { get; set; } public string DuelId { get; set; }
     public X1User Challenger { get; set; } public X1User Target { get; set; }
     public DateTime CreatedAtUtc { get; set; } public DateTime ExpiresAtUtc { get; set; } public DateTime? StartedAtUtc { get; set; }
     public int Seed { get; set; } public bool ResultAnnounced { get; set; } public bool IsTest { get; set; }
