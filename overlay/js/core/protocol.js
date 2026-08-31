@@ -4,6 +4,8 @@ export const X1_EVENTS = Object.freeze({
   cancel: "X1.Cancel",
 });
 
+export const X1_MODES = Object.freeze(["race", "arena"]);
+
 export function unwrapCustomEvent(message) {
   if (!message || typeof message !== "object") return null;
   if (typeof message.event === "string" && message.event.startsWith("X1.")) return message;
@@ -28,7 +30,7 @@ export function unwrapCustomEvent(message) {
 
 export function validateStart(payload, contractVersion) {
   if (!payload || payload.event !== X1_EVENTS.start) return null;
-  if (payload.contractVersion !== contractVersion || payload.mode !== "race") return null;
+  if (payload.contractVersion !== contractVersion || !X1_MODES.includes(payload.mode)) return null;
   if (typeof payload.duelId !== "string" || !payload.duelId) return null;
   if (!Number.isInteger(payload.seed) || payload.seed < 1 || payload.seed > 2147483646) return null;
 
