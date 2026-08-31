@@ -1,21 +1,45 @@
-# Mapa das Actions v0.5
+# Mapa das Actions v0.6
 
-Os nomes abaixo são parte do contrato. Use exatamente a mesma grafia.
+Os nomes abaixo fazem parte do contrato entre Streamer.bot e overlay. Use exatamente a mesma grafia.
+
+## Filas
+
+| Fila | Blocking |
+|---|---|
+| `X1-State` | ativado |
+| `X1-Timers` | desativado |
+
+## Actions compartilhadas
 
 | Action | Queue | Trigger | Responsabilidade |
 |---|---|---|---|
-| X1 - Criar Desafio | X1-State | reward `Chamar para o x1` | normalizar, buscar usuários, validar e agendar expiração |
-| X1 - Aceitar Desafio | X1-State | `!aceitarx1` | criar Prediction, registrar outcomes e agendar timer |
-| X1 - Recusar Desafio | X1-State | `!recusarx1` | recusar e concluir o reward |
-| X1 - Iniciar Corrida | X1-State | chamada interna | gerar seed e enviar `X1.Start` |
-| X1 - Confirmar Inicio | X1-State | HTTP, sem trigger | validar overlay e enviar `X1.Ack` |
-| X1 - Finalizar Partida | X1-State | HTTP, sem trigger | validar vencedor e resolver Prediction |
-| X1 - Cancelar | X1-State | `!x1cancel` | cancelar overlay/Prediction e reembolsar |
-| X1 - Testar Overlay | X1-State | sem trigger | teste sem reward e sem Prediction |
-| X1 - Expiracao | X1-Timers | chamada interna | delay 45s e expiração segura |
-| X1 - Timer Prediction | X1-Timers | chamada interna | aguardar 31s e iniciar corrida |
-| X1 - Watchdog | X1-Timers | chamada interna | watchdog de início e conclusão |
+| `X1 - Criar Desafio` | X1-State | recompensa atual da Corrida | criar estado do duelo; modo padrão `race` |
+| `X1 - Aceitar Desafio` | X1-State | `!aceitarx1` | criar Prediction e agendar timer |
+| `X1 - Recusar Desafio` | X1-State | `!recusarx1` | recusar e concluir reward |
+| `X1 - Expiracao` | X1-Timers | chamada interna | expiração segura |
+| `X1 - Timer Prediction` | X1-Timers | chamada interna | aguardar Prediction e chamar dispatcher |
+| `X1 - Iniciar Partida` | X1-State | chamada interna | rotear `race` para Corrida e `arena` para Arena |
+| `X1 - Confirmar Inicio` | X1-State | chamada pelo overlay via WebSocket `DoAction` | confirmar ACK de qualquer modo |
+| `X1 - Watchdog` | X1-Timers | chamada interna | ACK compartilhado + timeout físico apenas da Corrida |
+| `X1 - Cancelar` | X1-State | `!x1cancel` | cancelar duelo/Prediction |
 
-`X1-State` deve ser bloqueante. `X1-Timers` deve ser não bloqueante.
+## Corrida
 
-Consulte `docs/STREAMERBOT.md` para a ordem exata das sub-actions.
+| Action | Queue | Trigger | Responsabilidade |
+|---|---|---|---|
+| `X1 - Iniciar Corrida` | X1-State | dispatcher | gerar seed nova e enviar `X1.Start mode=race` |
+| `X1 - Finalizar Partida` | X1-State | overlay via WebSocket `DoAction` | validar resultado da Corrida e resolver Prediction |
+| `X1 - Testar Overlay` | X1-State | manual | teste da Corrida sem reward/Prediction |
+
+## Arena
+
+| Action | Queue | Trigger | Responsabilidade |
+|---|---|---|---|
+| `Arena - Criar Desafio` | X1-State | recompensa separada da Arena | definir `x1Mode=arena` e reutilizar `X1 - Criar Desafio` |
+| `Arena - Iniciar` | X1-State | dispatcher | gerar seed e enviar contrato mínimo `X1.Start mode=arena` |
+| `Arena - Watchdog` | X1-Timers | chamada interna | cancelar somente Arena travada |
+| `Arena - Finalizar Partida` | X1-State | overlay via WebSocket `DoAction` | validar identidade/vencedor e resolver Prediction |
+
+A física e o balanceamento da Arena pertencem exclusivamente a `overlay/js/modes/arena/`. As Actions não enviam dano, velocidade, armas, shrink ou limites de simulação para o jogo.
+
+Consulte `docs/STREAMERBOT.md` para a ordem exata das sub-actions e o roteiro de migração.
