@@ -51,6 +51,9 @@ public class CPHInline
             isTest = state.IsTest
         }));
 
+        // O watchdog compartilhado continua útil para o ACK de início.
+        // A etapa final dele possui guarda de Mode e nunca cancela a Arena.
+        CPH.RunAction("X1 - Watchdog", false);
         CPH.RunAction("Arena - Watchdog", false);
         CPH.SendMessage($"⚔️ Apostas encerradas. {state.Challenger.DisplayName} vs {state.Target.DisplayName}: Arena X1!", true, true);
         CPH.LogInfo($"[ARENA] Arena enviada: {state.DuelId} | seed {state.Seed}");
