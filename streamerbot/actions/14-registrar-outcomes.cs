@@ -33,17 +33,20 @@ public class CPHInline
             return false;
         }
 
+        state.Mode = NormalizeMode(state.Mode);
         state.ChallengerOutcomeId = challengerOutcomeId;
         state.TargetOutcomeId = targetOutcomeId;
         state.Status = "PREDICTION_OPEN";
         state.PredictionOpenedAtUtc = DateTime.UtcNow;
         Save(state);
         CPH.SetArgument("x1DuelId", state.DuelId);
-        CPH.SendMessage($"🎯 Prediction aberta: {state.Challenger.DisplayName} vs {state.Target.DisplayName}! Apostem seus Channel Points.", true, true);
-        CPH.LogInfo($"[X1] Prediction aberta: {state.PredictionId} | duelo {state.DuelId}");
+        string label = state.Mode == "arena" ? "Arena X1" : "X1";
+        CPH.SendMessage($"🎯 Prediction aberta para {label}: {state.Challenger.DisplayName} vs {state.Target.DisplayName}! Apostem seus Channel Points.", true, true);
+        CPH.LogInfo($"[X1] Prediction aberta: {state.PredictionId} | duelo {state.DuelId} | modo {state.Mode}");
         return true;
     }
 
+    private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
     private void TryCancelPrediction(string predictionId)
     {
         try { CPH.TwitchPredictionCancel(predictionId); }
@@ -62,7 +65,7 @@ public class CPHInline
 
 public class X1State
 {
-    public int ContractVersion { get; set; } public string Status { get; set; } public string DuelId { get; set; }
+    public int ContractVersion { get; set; } public string Mode { get; set; } public string Status { get; set; } public string DuelId { get; set; }
     public X1User Challenger { get; set; } public X1User Target { get; set; }
     public DateTime CreatedAtUtc { get; set; } public DateTime ExpiresAtUtc { get; set; }
     public DateTime? PredictionOpenedAtUtc { get; set; } public DateTime? StartedAtUtc { get; set; } public DateTime? OverlayConfirmedAtUtc { get; set; }
