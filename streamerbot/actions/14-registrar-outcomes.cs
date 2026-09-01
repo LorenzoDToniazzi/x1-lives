@@ -11,14 +11,40 @@ public class CPHInline
         CPH.TryGetArg("prediction.Id", out string predictionId);
         CPH.TryGetArg("prediction.outcome0.id", out string challengerOutcomeId);
         CPH.TryGetArg("prediction.outcome1.id", out string targetOutcomeId);
+        CPH.TryGetArg("prediction.Title", out string predictionTitle);
+        CPH.TryGetArg("prediction.outcome0.title", out string challengerOutcomeTitle);
+        CPH.TryGetArg("prediction.outcome1.title", out string targetOutcomeTitle);
+        bool createdAtFound = CPH.TryGetArg("prediction.CreatedAt", out DateTime predictionCreatedAt);
         CPH.TryGetArg("x1DuelId", out string duelId);
         X1State state = Load();
+
+        string expectedPredictionTitle = state == null
+            ? string.Empty
+            : (NormalizeMode(state.Mode) == "arena" ? "QUEM VENCE A ARENA X1?" : "QUEM VENCE O X1?");
+        string expectedChallengerTitle = state == null ? string.Empty : LimitOutcomeTitle(state.Challenger?.DisplayName);
+        string expectedTargetTitle = state == null ? string.Empty : LimitOutcomeTitle(state.Target?.DisplayName);
+        bool titlesMatch = SameText(predictionTitle, expectedPredictionTitle)
+            && SameText(challengerOutcomeTitle, expectedChallengerTitle)
+            && SameText(targetOutcomeTitle, expectedTargetTitle);
+        DateTime predictionCreatedUtc = createdAtFound ? predictionCreatedAt.ToUniversalTime() : DateTime.MinValue;
+        bool predictionIsFresh = state != null
+            && createdAtFound
+            && predictionCreatedUtc >= state.CreatedAtUtc.AddSeconds(-5)
+            && predictionCreatedUtc <= DateTime.UtcNow.AddSeconds(5);
+        bool sameById = state != null
+            && !string.IsNullOrWhiteSpace(state.PredictionId)
+            && state.PredictionId == predictionId;
+        bool recoverableByMetadata = state != null
+            && string.IsNullOrWhiteSpace(state.PredictionId)
+            && titlesMatch
+            && predictionIsFresh;
 
         bool valid = state != null
             && state.Status == "PREDICTION_CREATING"
             && state.DuelId == duelId
             && active
-            && state.PredictionId == predictionId
+            && !string.IsNullOrWhiteSpace(predictionId)
+            && (sameById || recoverableByMetadata)
             && !string.IsNullOrWhiteSpace(challengerOutcomeId)
             && !string.IsNullOrWhiteSpace(targetOutcomeId);
 
@@ -29,6 +55,7 @@ public class CPHInline
                 $"estado={(state == null ? "nulo" : state.Status)} active={active} " +
                 $"predictionRecebida={predictionId ?? "vazia"} " +
                 $"predictionEsperada={state?.PredictionId ?? "vazia"} " +
+                $"titlesMatch={titlesMatch} fresh={predictionIsFresh} " +
                 $"outcome0={!string.IsNullOrWhiteSpace(challengerOutcomeId)} " +
                 $"outcome1={!string.IsNullOrWhiteSpace(targetOutcomeId)}");
 
@@ -38,9 +65,19 @@ public class CPHInline
                 return false;
             }
 
-            string idToCancel = !string.IsNullOrWhiteSpace(state.PredictionId)
-                ? state.PredictionId
-                : predictionId;
+            bool belongsToCurrentDuel = sameById || recoverableByMetadata;
+            if (!belongsToCurrentDuel)
+            {
+                RefundRedemption(state);
+                CPH.UnsetGlobalVar(StateKey, false);
+                CPH.SendMessage(
+                    "Já existe outra Prediction ativa na Twitch. O desafio foi devolvido; encerre a Prediction atual antes de tentar novamente.",
+                    true,
+                    true);
+                return false;
+            }
+
+            string idToCancel = !string.IsNullOrWhiteSpace(state.PredictionId) ? state.PredictionId : predictionId;
             bool cancelled = TryCancelPrediction(idToCancel);
 
             // Se a Twitch recusar o cancelamento, preservamos o estado. Assim um
@@ -63,6 +100,7 @@ public class CPHInline
         }
 
         state.Mode = NormalizeMode(state.Mode);
+        state.PredictionId = predictionId;
         state.ChallengerOutcomeId = challengerOutcomeId;
         state.TargetOutcomeId = targetOutcomeId;
         state.Status = "PREDICTION_OPEN";
@@ -76,6 +114,17 @@ public class CPHInline
     }
 
     private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
+    private static bool SameText(string a, string b)
+    {
+        return !string.IsNullOrWhiteSpace(a)
+            && !string.IsNullOrWhiteSpace(b)
+            && string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+    private static string LimitOutcomeTitle(string value)
+    {
+        string text = string.IsNullOrWhiteSpace(value) ? "Jogador" : value.Trim();
+        return text.Length <= 25 ? text : text.Substring(0, 25);
+    }
     private bool TryCancelPrediction(string predictionId)
     {
         if (string.IsNullOrWhiteSpace(predictionId)) return false;
