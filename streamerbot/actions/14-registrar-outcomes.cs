@@ -36,7 +36,6 @@ public class CPHInline
             && state.PredictionId == predictionId;
         bool recoverableByMetadata = state != null
             && string.IsNullOrWhiteSpace(state.PredictionId)
-            && titlesMatch
             && predictionIsFresh;
 
         bool valid = state != null
