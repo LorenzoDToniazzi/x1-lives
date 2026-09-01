@@ -12,8 +12,8 @@ public class CPHInline
         CPH.TryGetArg("prediction.outcome0.id", out string challengerOutcomeId);
         CPH.TryGetArg("prediction.outcome1.id", out string targetOutcomeId);
         CPH.TryGetArg("prediction.Title", out string predictionTitle);
-        CPH.TryGetArg("prediction.outcome0.title", out string challengerOutcomeTitle);
-        CPH.TryGetArg("prediction.outcome1.title", out string targetOutcomeTitle);
+        string outcome0Title = ReadStringArg("prediction.outcome0.title", "prediction.outcome0.Title");
+        string outcome1Title = ReadStringArg("prediction.outcome1.title", "prediction.outcome1.Title");
         bool createdAtFound = CPH.TryGetArg("prediction.CreatedAt", out DateTime predictionCreatedAt);
         CPH.TryGetArg("x1DuelId", out string duelId);
         X1State state = Load();
@@ -23,9 +23,14 @@ public class CPHInline
             : (NormalizeMode(state.Mode) == "arena" ? "QUEM VENCE A ARENA X1?" : "QUEM VENCE O X1?");
         string expectedChallengerTitle = state == null ? string.Empty : LimitOutcomeTitle(state.Challenger?.DisplayName);
         string expectedTargetTitle = state == null ? string.Empty : LimitOutcomeTitle(state.Target?.DisplayName);
-        bool titlesMatch = SameText(predictionTitle, expectedPredictionTitle)
-            && SameText(challengerOutcomeTitle, expectedChallengerTitle)
-            && SameText(targetOutcomeTitle, expectedTargetTitle);
+        bool predictionTitleMatches = SameText(predictionTitle, expectedPredictionTitle);
+        bool outcomeOrderNormal = SameText(outcome0Title, expectedChallengerTitle)
+            && SameText(outcome1Title, expectedTargetTitle);
+        bool outcomeOrderReversed = SameText(outcome0Title, expectedTargetTitle)
+            && SameText(outcome1Title, expectedChallengerTitle);
+        bool outcomeMappingKnown = outcomeOrderNormal || outcomeOrderReversed;
+        string mappedChallengerOutcomeId = outcomeOrderReversed ? targetOutcomeId : challengerOutcomeId;
+        string mappedTargetOutcomeId = outcomeOrderReversed ? challengerOutcomeId : targetOutcomeId;
         DateTime predictionCreatedUtc = createdAtFound ? predictionCreatedAt.ToUniversalTime() : DateTime.MinValue;
         bool predictionIsFresh = state != null
             && createdAtFound
@@ -44,8 +49,9 @@ public class CPHInline
             && active
             && !string.IsNullOrWhiteSpace(predictionId)
             && (sameById || recoverableByMetadata)
-            && !string.IsNullOrWhiteSpace(challengerOutcomeId)
-            && !string.IsNullOrWhiteSpace(targetOutcomeId);
+            && outcomeMappingKnown
+            && !string.IsNullOrWhiteSpace(mappedChallengerOutcomeId)
+            && !string.IsNullOrWhiteSpace(mappedTargetOutcomeId);
 
         if (!valid)
         {
@@ -54,9 +60,11 @@ public class CPHInline
                 $"estado={(state == null ? "nulo" : state.Status)} active={active} " +
                 $"predictionRecebida={predictionId ?? "vazia"} " +
                 $"predictionEsperada={state?.PredictionId ?? "vazia"} " +
-                $"titlesMatch={titlesMatch} fresh={predictionIsFresh} " +
-                $"outcome0={!string.IsNullOrWhiteSpace(challengerOutcomeId)} " +
-                $"outcome1={!string.IsNullOrWhiteSpace(targetOutcomeId)}");
+                $"predictionTitleMatch={predictionTitleMatches} fresh={predictionIsFresh} " +
+                $"outcome0Title={outcome0Title ?? "vazio"} outcome1Title={outcome1Title ?? "vazio"} " +
+                $"orderNormal={outcomeOrderNormal} orderReversed={outcomeOrderReversed} " +
+                $"outcome0Id={!string.IsNullOrWhiteSpace(challengerOutcomeId)} " +
+                $"outcome1Id={!string.IsNullOrWhiteSpace(targetOutcomeId)}");
 
             if (state == null)
             {
@@ -100,15 +108,17 @@ public class CPHInline
 
         state.Mode = NormalizeMode(state.Mode);
         state.PredictionId = predictionId;
-        state.ChallengerOutcomeId = challengerOutcomeId;
-        state.TargetOutcomeId = targetOutcomeId;
+        state.ChallengerOutcomeId = mappedChallengerOutcomeId;
+        state.TargetOutcomeId = mappedTargetOutcomeId;
         state.Status = "PREDICTION_OPEN";
         state.PredictionOpenedAtUtc = DateTime.UtcNow;
         Save(state);
         CPH.SetArgument("x1DuelId", state.DuelId);
         string label = state.Mode == "arena" ? "Arena X1" : "X1";
         CPH.SendMessage($"🎯 Prediction aberta para {label}: {state.Challenger.DisplayName} vs {state.Target.DisplayName}! Apostem seus Channel Points.", true, true);
-        CPH.LogInfo($"[X1] Prediction aberta: {state.PredictionId} | duelo {state.DuelId} | modo {state.Mode}");
+        CPH.LogInfo(
+            $"[X1] Prediction aberta: {state.PredictionId} | duelo {state.DuelId} | modo {state.Mode} | " +
+            $"ordem outcomes={(outcomeOrderReversed ? "invertida" : "normal")}");
         return true;
     }
 
@@ -123,6 +133,15 @@ public class CPHInline
     {
         string text = string.IsNullOrWhiteSpace(value) ? "Jogador" : value.Trim();
         return text.Length <= 25 ? text : text.Substring(0, 25);
+    }
+    private string ReadStringArg(params string[] names)
+    {
+        foreach (string name in names)
+        {
+            if (CPH.TryGetArg(name, out string value) && !string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+        return string.Empty;
     }
     private bool TryCancelPrediction(string predictionId)
     {
