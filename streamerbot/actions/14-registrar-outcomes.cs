@@ -24,12 +24,41 @@ public class CPHInline
 
         if (!valid)
         {
-            if (!string.IsNullOrWhiteSpace(state?.PredictionId))
-                TryCancelPrediction(state.PredictionId);
-            if (state != null) RefundRedemption(state);
+            CPH.LogError(
+                $"[X1] Falha ao registrar outcomes: duelo={duelId ?? "vazio"} " +
+                $"estado={(state == null ? "nulo" : state.Status)} active={active} " +
+                $"predictionRecebida={predictionId ?? "vazia"} " +
+                $"predictionEsperada={state?.PredictionId ?? "vazia"} " +
+                $"outcome0={!string.IsNullOrWhiteSpace(challengerOutcomeId)} " +
+                $"outcome1={!string.IsNullOrWhiteSpace(targetOutcomeId)}");
+
+            if (state == null)
+            {
+                if (!string.IsNullOrWhiteSpace(predictionId)) TryCancelPrediction(predictionId);
+                return false;
+            }
+
+            string idToCancel = !string.IsNullOrWhiteSpace(state.PredictionId)
+                ? state.PredictionId
+                : predictionId;
+            bool cancelled = TryCancelPrediction(idToCancel);
+
+            // Se a Twitch recusar o cancelamento, preservamos o estado. Assim um
+            // novo resgate fica bloqueado e não tenta criar uma segunda Prediction.
+            if (!cancelled)
+            {
+                state.Status = "PREDICTION_CANCEL_FAILED";
+                Save(state);
+                CPH.SendMessage(
+                    "A Twitch manteve a Prediction aberta. O X1 foi bloqueado para impedir outra Prediction; cancele a atual e use !x1cancel.",
+                    true,
+                    true);
+                return false;
+            }
+
+            RefundRedemption(state);
             CPH.UnsetGlobalVar(StateKey, false);
-            CPH.SendMessage("Não foi possível preparar as opções da Prediction. O desafio foi cancelado.", true, true);
-            CPH.LogError($"[X1] Falha ao registrar outcomes: {duelId}");
+            CPH.SendMessage("Não foi possível preparar as opções da Prediction. Ela foi cancelada e o desafio foi devolvido.", true, true);
             return false;
         }
 
@@ -47,10 +76,20 @@ public class CPHInline
     }
 
     private static string NormalizeMode(string mode) { return string.Equals(mode, "arena", StringComparison.OrdinalIgnoreCase) ? "arena" : "race"; }
-    private void TryCancelPrediction(string predictionId)
+    private bool TryCancelPrediction(string predictionId)
     {
-        try { CPH.TwitchPredictionCancel(predictionId); }
-        catch (Exception error) { CPH.LogError($"[X1] Erro cancelando Prediction incompleta: {error.Message}"); }
+        if (string.IsNullOrWhiteSpace(predictionId)) return false;
+        try
+        {
+            CPH.TwitchPredictionCancel(predictionId);
+            CPH.LogInfo($"[X1] Prediction incompleta cancelada: {predictionId}");
+            return true;
+        }
+        catch (Exception error)
+        {
+            CPH.LogError($"[X1] Erro cancelando Prediction incompleta: {error.Message}");
+            return false;
+        }
     }
 
     private void RefundRedemption(X1State state)
