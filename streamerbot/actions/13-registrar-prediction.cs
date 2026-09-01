@@ -35,6 +35,12 @@ public class CPHInline
         state.Mode = NormalizeMode(state.Mode);
         state.PredictionId = predictionId;
         Save(state);
+
+        // A criação e a consulta da Prediction usam chamadas separadas.
+        // Sem uma pequena espera, a Twitch pode confirmar o Create antes de
+        // disponibilizar os outcomes para o Get Active seguinte.
+        CPH.LogInfo($"[X1] Prediction criada; aguardando sincronização dos outcomes: {predictionId}");
+        CPH.Wait(1500);
         return true;
     }
 
