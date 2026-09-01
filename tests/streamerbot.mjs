@@ -21,6 +21,9 @@ const outcomes = await read("14-registrar-outcomes.cs");
 assert.match(outcomes, /prediction\.outcome0\.id/);
 assert.match(outcomes, /prediction\.outcome1\.id/);
 assert.match(outcomes, /PREDICTION_OPEN/);
+assert.match(outcomes, /outcomeOrderNormal/);
+assert.match(outcomes, /outcomeOrderReversed/);
+assert.match(outcomes, /mappedChallengerOutcomeId/);
 
 const start = await read("15-iniciar-corrida.cs");
 assert.match(start, /X1\.Start/);
