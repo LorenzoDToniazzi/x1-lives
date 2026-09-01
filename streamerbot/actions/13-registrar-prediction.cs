@@ -23,24 +23,28 @@ public class CPHInline
             return false;
         }
 
-        if (!success || string.IsNullOrWhiteSpace(predictionId))
-        {
-            RefundRedemption(state);
-            CPH.UnsetGlobalVar(StateKey, false);
-            CPH.SendMessage("Não foi possível abrir a Prediction e o desafio foi cancelado.", true, true);
-            CPH.LogError($"[X1] Falha ao criar Prediction: {state.DuelId}");
-            return false;
-        }
-
         state.Mode = NormalizeMode(state.Mode);
-        state.PredictionId = predictionId;
+        if (success && !string.IsNullOrWhiteSpace(predictionId))
+        {
+            state.PredictionId = predictionId;
+            CPH.LogInfo($"[X1] Create Prediction confirmou id: {predictionId}");
+        }
+        else
+        {
+            // O Streamer.bot pode devolver success=false/id vazio mesmo depois de
+            // a Twitch ter criado a Prediction. O Get Active + passo 14 serão a
+            // fonte de verdade e validarão id, horário, título e participantes.
+            CPH.LogWarn(
+                $"[X1] Create Prediction retornou success={success} id={predictionId ?? "vazio"}; " +
+                "aguardando confirmação pelo Get Active Prediction.");
+        }
         Save(state);
 
         // A criação e a consulta da Prediction usam chamadas separadas.
         // Sem uma pequena espera, a Twitch pode confirmar o Create antes de
         // disponibilizar os outcomes para o Get Active seguinte.
         CPH.LogInfo($"[X1] Prediction criada; aguardando sincronização dos outcomes: {predictionId}");
-        CPH.Wait(1500);
+        CPH.Wait(2000);
         return true;
     }
 
